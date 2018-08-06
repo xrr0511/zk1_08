@@ -3,10 +3,16 @@ var url = require('url');
 var path = require('path');
 var fs = require('fs');
 var server = require('gulp-webserver');
-
+var sass = require('gulp-sass');
+var autoprefixer = require('gulp-autoprefixer');
+var minCss = require('gulp-clean-css');
+var uglify = require('gulp-uglify');
+var swiperData = require('./mock/swiper.json')
+var listData = require('./mock/list.json')
+var babel = require('gulp-babel');
 //起服务
 gulp.task('server', function() {
-    gulp.src('src')
+    return gulp.src('src')
         .pipe(server({
             port: 9090,
             middleware: function(req, res, next) {
@@ -16,8 +22,53 @@ gulp.task('server', function() {
                     return false;
                 }
 
-                pathname = pathname === '/' ? '/index.html' : pathname;
-                res.end(fs.readFileSync(path.join(__dirname, 'src', pathname)));
+                if (pathname === '/api/swiper') {
+                    res.end(JSON.stringify({ code: 1, data: swiperData }))
+                } else if (pathname === '/api/list') {
+                    res.end(JSON.stringify({ code: 1, data: listData }))
+
+                } else {
+                    pathname = pathname === '/' ? '/index.html' : pathname;
+                    res.end(fs.readFileSync(path.join(__dirname, 'src', pathname)));
+                }
+
             }
         }))
 })
+
+//css
+
+function cssTask() {
+    return gulp.src('./src/scss/*.scss')
+        .pipe(sass())
+        .pipe(autoprefixer({
+            browsers: ['last 2 versions', 'Android >= 4.8']
+        }))
+        .pipe(minCss())
+        .pipe(gulp.dest('./src/css'))
+}
+//css任务
+gulp.task(cssTask)
+
+
+//js
+
+function uglifyTask() {
+    return gulp.src('./src/js/*.js')
+        .pipe(uglify())
+        .pipe(babel({
+            presets: ['es2015']
+        }))
+        .pipe(gulp.dest('build/js'))
+}
+gulp.task(uglifyTask)
+
+//watch
+
+gulp.task('watch', function() {
+    return gulp.watch('./src/scss/*.scss', gulp.series(cssTask))
+})
+
+//dev
+
+gulp.task('dev', gulp.series(gulp.parallel(cssTask, uglifyTask), 'server', 'watch'))
